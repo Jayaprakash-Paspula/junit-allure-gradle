@@ -1,4 +1,4 @@
-name: Java CI with Gradle & Allure
+name: Java CI with Gradle, Allure & JaCoCo
 
 on:
   push:
@@ -20,17 +20,26 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Grant execute permission for gradlew
+      - name: Grant execute permission for Gradle Wrapper
         run: chmod +x gradlew
 
-      - name: Build and Test
+      - name: Build and Run Tests
         run: ./gradlew clean test
 
       - name: Generate Allure Report
         run: ./gradlew allureReport
 
-      - name: Upload Allure Results
+      - name: Generate JaCoCo Report
+        run: ./gradlew jacocoTestReport
+
+      - name: Upload Allure Report
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: build/reports/allure-report
+
+      - name: Upload JaCoCo Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: build/reports/jacoco/test/html
