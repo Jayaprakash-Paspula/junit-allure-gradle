@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'io.qameta.allure' version '2.11.2'
+    id 'jacoco'
 }
 
 group = 'com.example'
@@ -17,8 +18,14 @@ dependencies {
 
 test {
     useJUnitPlatform()
-    testLogging {
-        events "passed", "failed", "skipped"
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
     }
 }
 
