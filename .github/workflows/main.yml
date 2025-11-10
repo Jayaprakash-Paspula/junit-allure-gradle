@@ -1,4 +1,4 @@
-name: JUnit Tests + Zephyr Scale Reporting (Container)
+name: JUnit Tests + Zephyr Scale Reporting
 
 on:
   push:
