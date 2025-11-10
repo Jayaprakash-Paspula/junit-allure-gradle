@@ -38,18 +38,18 @@ jobs:
       - name: Upload results to Zephyr Scale
         if: always()
         env:
-          ZEPHYR_API_TOKEN: ${{ secrets.ZEPHYR_API_TOKEN }}
-          JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+          ZEPHYR_API_TOKEN: ${{ secrets.ZEPHYR_TOKEN }}
+          JIRA_PROJECT_KEY: ${{ secrets.ZEPHYR_PROJECT_KEY }}
         run: |
           # Validate required secrets
-          if [ -z "$ZEPHYR_API_TOKEN" ]; then
-            echo "ERROR: ZEPHYR_API_TOKEN secret is not set"
+          if [ -z "$ZEPHYR_TOKEN" ]; then
+            echo "ERROR: ZEPHYR_TOKEN secret is not set"
             echo "Please add your Zephyr Scale API token to GitHub Secrets"
             exit 1
           fi
           
-          if [ -z "$JIRA_PROJECT_KEY" ]; then
-            echo "ERROR: JIRA_PROJECT_KEY secret is not set"
+          if [ -z "$ZEPHYR_PROJECT_KEY" ]; then
+            echo "ERROR: ZEPHYR_PROJECT_KEY secret is not set"
             echo "Please add your Jira project key to GitHub Secrets"
             exit 1
           fi
@@ -64,15 +64,15 @@ jobs:
           fi
           
           echo "Uploading test results to Zephyr Scale..."
-          echo "Project Key: ${JIRA_PROJECT_KEY}"
+          echo "Project Key: ${ZEPHYR_PROJECT_KEY}"
           
           # Upload to Zephyr Scale API
           RESPONSE=$(curl -w "\n%{http_code}" -X POST \
             "https://api.zephyrscale.smartbear.com/v2/automations/executions/junit" \
-            -H "Authorization: Bearer ${ZEPHYR_API_TOKEN}" \
+            -H "Authorization: Bearer ${ZEPHYR_TOKEN}" \
             -H "Content-Type: multipart/form-data" \
             -F "file=@combined-results.xml" \
-            -F "projectKey=${JIRA_PROJECT_KEY}" \
+            -F "projectKey=${ZEPHYR_PROJECT_KEY}" \
             -F "autoCreateTestCases=true")
           
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
