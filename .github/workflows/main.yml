@@ -39,7 +39,7 @@ jobs:
       # You need required API keys and project details in GitHub Secrets
       - name: Publish JUnit Results to Zephyr
         env:
-          ZEPHYR_BASE_URL: ${{ secrets.ZEPHYR_BASE_URL }}       # Example: https://your-zephyr-instance/rest/api/2
+          ZEPHYR_BASE_URL: ${{ secrets.JIRA_BASE_URL }}       # Example: https://your-zephyr-instance/rest/api/2
           ZEPHYR_TOKEN: ${{ secrets.JIRA_API_TOKEN }}             # API token / access key
           ZEPHYR_PROJECT_KEY: ${{ secrets.ZEPHYR_PROJECT_KEY }} # Example: SRE
           #ZEPHYR_CYCLE_KEY: ${{ secrets.ZEPHYR_CYCLE_KEY }}     # Example: CYCLE-01
@@ -50,12 +50,11 @@ jobs:
           for file in target/surefire-reports/*.xml; do
             echo "Uploading $file..."
 
-            curl -X POST "$ZEPHYR_BASE_URL/automation/execution" \
+            curl -X POST "$JIRA_BASE_URL/automation/execution" \
               -H "Authorization: Bearer $JIRA_API_TOKEN" \
               -H "Content-Type: multipart/form-data" \
               -F "file=@$file" \
-              -F "projectKey=$ZEPHYR_PROJECT_KEY" \
-              -F "testCycleKey=$ZEPHYR_CYCLE_KEY"
+              -F "projectKey=$ZEPHYR_PROJECT_KEY" 
           done
 
           echo "Zephyr upload completed!"
