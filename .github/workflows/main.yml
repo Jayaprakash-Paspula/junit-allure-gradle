@@ -2,59 +2,70 @@ name: JUnit5 Tests and Zephyr Reporting
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
   pull_request:
-    branches:
-      - main
+    branches: [ "main" ]
 
 jobs:
-  run-tests-and-publish:
+  junit-tests-zephyr:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout source code
+      # Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up JDK
+      # Setup Java
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # Step 3: Build and run tests with JUnit5
-      - name: Build and Test with Maven
+      # Run tests
+      - name: Run JUnit5 Tests
         run: mvn -B clean test
 
-      # Step 4: Archive test reports as workflow artifacts
-      - name: Upload JUnit test reports
+      # Upload test reports to GitHub artifacts
+      - name: Upload JUnit Test Reports
         uses: actions/upload-artifact@v4
         with:
           name: junit-test-reports
           path: target/surefire-reports/*.xml
 
-      # Step 5: Publish test results to Zephyr
-      # You need required API keys and project details in GitHub Secrets
-      - name: Publish JUnit Results to Zephyr
+      # Publish test results to Zephyr
+      - name: Publish Test Results to Zephyr
         env:
-          ZEPHYR_BASE_URL: ${{ secrets.JIRA_BASE_URL }}       # Example: https://your-zephyr-instance/rest/api/2
-          ZEPHYR_TOKEN: ${{ secrets.JIRA_API_TOKEN }}             # API token / access key
-          ZEPHYR_PROJECT_KEY: ${{ secrets.ZEPHYR_PROJECT_KEY }} # Example: SRE
-          #ZEPHYR_CYCLE_KEY: ${{ secrets.ZEPHYR_CYCLE_KEY }}     # Example: CYCLE-01
+          ZEPHYR_BASE_URL: ${{ secrets.ZEPHYR_BASE_URL }}
+          ZEPHYR_TOKEN: ${{ secrets.ZEPHYR_TOKEN }}
+          ZEPHYR_PROJECT_KEY: ${{ secrets.ZEPHYR_PROJECT_KEY }}
+          #ZEPHYR_CYCLE_KEY: ${{ secrets.ZEPHYR_CYCLE_KEY }}
         run: |
           echo "Publishing test results to Zephyr..."
+          echo "Using Zephyr Base URL: ${ZEPHYR_BASE_URL}"
 
-          # Example: Loop through Surefire reports and publish
+          # Safety check to ensure URL is not empty
+          if [[ -z "$ZEPHYR_BASE_URL" ]]; then
+            echo "ERROR: ZEPHYR_BASE_URL is empty!"
+            exit 1
+          fi
+
           for file in target/surefire-reports/*.xml; do
-            echo "Uploading $file..."
+            echo "Uploading: $file"
 
-            curl -X POST "$JIRA_BASE_URL/automation/execution" \
-              -H "Authorization: Bearer $JIRA_API_TOKEN" \
+            response=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "${ZEPHYR_BASE_URL}/automation/execution" \
+              -H "Authorization: Bearer ${ZEPHYR_TOKEN}" \
               -H "Content-Type: multipart/form-data" \
-              -F "file=@$file" \
-              -F "projectKey=$ZEPHYR_PROJECT_KEY" 
+              -F "file=@${file}" \
+              -F "projectKey=${ZEPHYR_PROJECT_KEY}")
+
+            if [ "$response" -ne 200 ]; then
+              echo "Failed to upload ${file}. HTTP status: $response"
+              exit 1
+            else
+              echo "Successfully uploaded ${file}."
+            fi
           done
 
-          echo "Zephyr upload completed!"
+          echo "✅ Zephyr upload completed successfully!"
