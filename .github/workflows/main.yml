@@ -1,47 +1,59 @@
-name: JUnit5 Tests with Zephyr Reporting
+name: Maven CI with JUnit & Allure (GitHub Pages)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
   pull_request:
-    branches:
-      - main
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  test-and-report:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repository
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Set up Java
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # Run Maven tests (JUnit 5)
-      - name: Run Unit Tests
-        run: mvn -B test
-
-      # Upload test results as GitHub artifact
-      - name: Upload JUnit Test Results
-        uses: actions/upload-artifact@v4
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
         with:
-          name: junit-test-results
-          path: target/surefire-reports/*.xml
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Build and Run Tests
+        run: mvn clean verify --batch-mode
 
-      # Send test results to Zephyr Scale
-      - name: Publish JUnit Results to Zephyr Scale
-        uses: mikepenz/zephyr-reporter-action@v1.2.0
+      - name: Generate Allure Report
+        run: mvn io.qameta.allure:allure-maven:report
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Allure Report to Pages Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          jiraBaseUrl: ${{ secrets.JIRA_BASE_URL }}          # e.g. https://yourdomain.atlassian.net
-          jiraUserEmail: ${{ secrets.JIRA_USER_EMAIL }}
-          jiraApiToken: ${{ secrets.JIRA_API_TOKEN }}
-          projectKey: ${{ secrets.ZEPHYR_PROJECT_KEY }}      # Example: ABC
-          #testCycleKey: ${{ secrets.ZEPHYR_TEST_CYCLE_KEY }} # Optional: ZCY-1
-          testResultFiles: "target/surefire-reports/*.xml"
+          path: target/site/allure-maven-plugin/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
