@@ -1,4 +1,4 @@
-name: JUnit5 Tests and Zephyr Reporting
+name: JUnit5 Tests and Zephyr Scale Reporting
 
 on:
   push:
@@ -7,11 +7,11 @@ on:
     branches: [ "main" ]
 
 jobs:
-  junit-tests-zephyr:
+  junit-tests-zephyr-scale:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout code
+      # Checkout the code
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -22,50 +22,49 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # Run tests
+      # Clean and run tests
       - name: Run JUnit5 Tests
         run: mvn -B clean test
 
-      # Upload test reports to GitHub artifacts
+      # Upload test reports to GitHub (optional)
       - name: Upload JUnit Test Reports
         uses: actions/upload-artifact@v4
         with:
           name: junit-test-reports
           path: target/surefire-reports/*.xml
 
-      # Publish test results to Zephyr
-      - name: Publish Test Results to Zephyr
+      # Publish test results to Zephyr Scale Cloud
+      - name: Publish Test Results to Zephyr Scale
         env:
-          ZEPHYR_BASE_URL: ${{ secrets.ZEPHYR_BASE_URL }}
+          ZEPHYR_BASE_URL: "https://api.zephyrscale.smartbear.com/v2"
           ZEPHYR_TOKEN: ${{ secrets.ZEPHYR_TOKEN }}
           ZEPHYR_PROJECT_KEY: ${{ secrets.ZEPHYR_PROJECT_KEY }}
           #ZEPHYR_CYCLE_KEY: ${{ secrets.ZEPHYR_CYCLE_KEY }}
         run: |
-          echo "Publishing test results to Zephyr..."
-          echo "Using Zephyr Base URL: ${ZEPHYR_BASE_URL}"
+          echo "Publishing test results to Zephyr Scale..."
+          echo "Project Key: ${ZEPHYR_PROJECT_KEY}"
+          echo "Using API: ${ZEPHYR_BASE_URL}/automation/executions/junit"
 
-          # Safety check to ensure URL is not empty
-          if [[ -z "$ZEPHYR_BASE_URL" ]]; then
-            echo "ERROR: ZEPHYR_BASE_URL is empty!"
+          # Validate mandatory variables
+          if [[ -z "${ZEPHYR_TOKEN}" || -z "${ZEPHYR_PROJECT_KEY}" ]]; then
+            echo "❌ Missing required environment variables!"
             exit 1
           fi
 
+          # Upload each XML test report
           for file in target/surefire-reports/*.xml; do
             echo "Uploading: $file"
 
             response=$(curl -s -o /dev/null -w "%{http_code}" \
-              -X POST "${ZEPHYR_BASE_URL}/automation/execution" \
+              -L \
+              -X POST "${ZEPHYR_BASE_URL}/automation/executions/junit" \
               -H "Authorization: Bearer ${ZEPHYR_TOKEN}" \
               -H "Content-Type: multipart/form-data" \
               -F "file=@${file}" \
-              -F "projectKey=${ZEPHYR_PROJECT_KEY}")
+              -F "projectKey=${ZEPHYR_PROJECT_KEY}" 
+            )
 
-            if [ "$response" -ne 200 ]; then
-              echo "Failed to upload ${file}. HTTP status: $response"
-              exit 1
+            if [ "$response" -eq 200 ]; then
+              echo "✅ Successfully uploaded ${file}."
             else
-              echo "Successfully uploaded ${file}."
-            fi
-          done
-
-          echo "✅ Zephyr upload completed successfully!"
+              echo "❌ Failed to upload ${file}. HTTP status: ${response
