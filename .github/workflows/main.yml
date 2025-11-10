@@ -46,14 +46,12 @@ jobs:
         with:
           path: target/site/allure-maven-plugin/
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish JUnit Results to Zephyr Scale
+        uses: mikepenz/zephyr-reporter-action@v1.2.0
+        with:
+          jiraBaseUrl: ${{ secrets.JIRA_BASE_URL }}          # e.g. https://yourdomain.atlassian.net
+          jiraUserEmail: ${{ secrets.JIRA_USER_EMAIL }}
+          jiraApiToken: ${{ secrets.JIRA_API_TOKEN }}
+          projectKey: ${{ secrets.ZEPHYR_PROJECT_KEY }}      # Example: ABC
+          #testCycleKey: ${{ secrets.ZEPHYR_TEST_CYCLE_KEY }} # Optional: ZCY-1
+          testResultFiles: "target/surefire-reports/*.xml"
