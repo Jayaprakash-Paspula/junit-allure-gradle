@@ -41,17 +41,52 @@ jobs:
           ZEPHYR_API_TOKEN: ${{ secrets.ZEPHYR_API_TOKEN }}
           JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
         run: |
+          # Validate required secrets
+          if [ -z "$ZEPHYR_API_TOKEN" ]; then
+            echo "ERROR: ZEPHYR_API_TOKEN secret is not set"
+            echo "Please add your Zephyr Scale API token to GitHub Secrets"
+            exit 1
+          fi
+          
+          if [ -z "$JIRA_PROJECT_KEY" ]; then
+            echo "ERROR: JIRA_PROJECT_KEY secret is not set"
+            echo "Please add your Jira project key to GitHub Secrets"
+            exit 1
+          fi
+          
           # Combine all test results into a single file
           find target/surefire-reports -name "TEST-*.xml" -exec cat {} \; > combined-results.xml
           
+          # Check if test results exist
+          if [ ! -s combined-results.xml ]; then
+            echo "ERROR: No test results found"
+            exit 1
+          fi
+          
+          echo "Uploading test results to Zephyr Scale..."
+          echo "Project Key: ${JIRA_PROJECT_KEY}"
+          
           # Upload to Zephyr Scale API
-          curl -X POST \
+          RESPONSE=$(curl -w "\n%{http_code}" -X POST \
             "https://api.zephyrscale.smartbear.com/v2/automations/executions/junit" \
             -H "Authorization: Bearer ${ZEPHYR_API_TOKEN}" \
             -H "Content-Type: multipart/form-data" \
             -F "file=@combined-results.xml" \
             -F "projectKey=${JIRA_PROJECT_KEY}" \
-            -F "autoCreateTestCases=true"
+            -F "autoCreateTestCases=true")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Response: $BODY"
+          echo "HTTP Status: $HTTP_CODE"
+          
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✓ Successfully uploaded test results to Zephyr Scale"
+          else
+            echo "✗ Failed to upload test results. HTTP Status: $HTTP_CODE"
+            exit 1
+          fi
             
       - name: Archive test results
         if: always()
