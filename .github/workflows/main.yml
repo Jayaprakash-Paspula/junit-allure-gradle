@@ -1,57 +1,61 @@
-name: Maven CI with JUnit & Allure (GitHub Pages)
+name: JUnit5 Tests and Zephyr Reporting
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+    branches:
+      - main
 
 jobs:
-  build:
+  run-tests-and-publish:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # Step 1: Checkout source code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      # Step 2: Set up JDK
+      - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          distribution: temurin
+          java-version: 17
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
+      # Step 3: Build and run tests with JUnit5
+      - name: Build and Test with Maven
+        run: mvn -B clean test
+
+      # Step 4: Archive test reports as workflow artifacts
+      - name: Upload JUnit test reports
+        uses: actions/upload-artifact@v4
         with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-      - name: Build and Run Tests
-        run: mvn clean verify --batch-mode
+          name: junit-test-reports
+          path: target/surefire-reports/*.xml
 
-      - name: Generate Allure Report
-        run: mvn io.qameta.allure:allure-maven:report
+      # Step 5: Publish test results to Zephyr
+      # You need required API keys and project details in GitHub Secrets
+      - name: Publish JUnit Results to Zephyr
+        env:
+          ZEPHYR_BASE_URL: ${{ secrets.ZEPHYR_BASE_URL }}       # Example: https://your-zephyr-instance/rest/api/2
+          ZEPHYR_TOKEN: ${{ secrets.JIRA_API_TOKEN }}             # API token / access key
+          ZEPHYR_PROJECT_KEY: ${{ secrets.ZEPHYR_PROJECT_KEY }} # Example: SRE
+          #ZEPHYR_CYCLE_KEY: ${{ secrets.ZEPHYR_CYCLE_KEY }}     # Example: CYCLE-01
+        run: |
+          echo "Publishing test results to Zephyr..."
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+          # Example: Loop through Surefire reports and publish
+          for file in target/surefire-reports/*.xml; do
+            echo "Uploading $file..."
 
-      - name: Upload Allure Report to Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: target/site/allure-maven-plugin/
+            curl -X POST "$ZEPHYR_BASE_URL/automation/execution" \
+              -H "Authorization: Bearer $JIRA_API_TOKEN" \
+              -H "Content-Type: multipart/form-data" \
+              -F "file=@$file" \
+              -F "projectKey=$ZEPHYR_PROJECT_KEY" \
+              -F "testCycleKey=$ZEPHYR_CYCLE_KEY"
+          done
 
-      - name: Publish JUnit Results to Zephyr Scale
-        uses: mikepenz/zephyr-reporter-action@v1.2.0
-        with:
-          jiraBaseUrl: ${{ secrets.JIRA_BASE_URL }}          # e.g. https://yourdomain.atlassian.net
-          jiraUserEmail: ${{ secrets.JIRA_USER_EMAIL }}
-          jiraApiToken: ${{ secrets.JIRA_API_TOKEN }}
-          projectKey: ${{ secrets.ZEPHYR_PROJECT_KEY }}      # Example: ABC
-          #testCycleKey: ${{ secrets.ZEPHYR_TEST_CYCLE_KEY }} # Optional: ZCY-1
-          testResultFiles: "target/surefire-reports/*.xml"
+          echo "Zephyr upload completed!"
