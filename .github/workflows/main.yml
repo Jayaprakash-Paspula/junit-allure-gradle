@@ -3,6 +3,9 @@ name: JUnit5 Tests and Zephyr Scale Reporting
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
 jobs:
   junit-tests-zephyr-scale:
     runs-on: ubuntu-latest
@@ -36,14 +39,15 @@ jobs:
           ZEPHYR_BASE_URL: "https://api.zephyrscale.smartbear.com/v2"
           ZEPHYR_TOKEN: ${{ secrets.ZEPHYR_TOKEN }}
           ZEPHYR_PROJECT_KEY: ${{ secrets.ZEPHYR_PROJECT_KEY }}
-          #ZEPHYR_CYCLE_KEY: ${{ secrets.ZEPHYR_CYCLE_KEY }}
+          ZEPHYR_CYCLE_KEY: ${{ secrets.ZEPHYR_CYCLE_KEY }}
         run: |
           echo "Publishing test results to Zephyr Scale..."
           echo "Project Key: ${ZEPHYR_PROJECT_KEY}"
+          echo "Cycle Key: ${ZEPHYR_CYCLE_KEY}"
           echo "Using API: ${ZEPHYR_BASE_URL}/automation/executions/junit"
 
           # Validate mandatory variables
-          if [[ -z "${ZEPHYR_TOKEN}" || -z "${ZEPHYR_PROJECT_KEY}" ]]; then
+          if [[ -z "${ZEPHYR_TOKEN}" || -z "${ZEPHYR_PROJECT_KEY}" || -z "${ZEPHYR_CYCLE_KEY}" ]]; then
             echo "❌ Missing required environment variables!"
             exit 1
           fi
@@ -58,7 +62,8 @@ jobs:
               -H "Authorization: Bearer ${ZEPHYR_TOKEN}" \
               -H "Content-Type: multipart/form-data" \
               -F "file=@${file}" \
-              -F "projectKey=${ZEPHYR_PROJECT_KEY}" 
+              -F "projectKey=${ZEPHYR_PROJECT_KEY}" \
+              -F "testCycleKey=${ZEPHYR_CYCLE_KEY}"
             )
 
             if [ "$response" -eq 200 ]; then
