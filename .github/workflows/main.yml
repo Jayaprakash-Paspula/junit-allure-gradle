@@ -10,11 +10,6 @@ jobs:
   junit-zephyr:
     runs-on: ubuntu-latest
 
-    # Use your custom container image
-    container:
-      image: ghcr.io/your-org/zephyr-uploader:latest
-      options: --entrypoint ""   # override entrypoint if needed
-
     steps:
       # Step 1: Checkout the repository
       - name: Checkout repository
