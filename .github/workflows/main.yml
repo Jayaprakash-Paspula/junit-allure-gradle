@@ -3,9 +3,6 @@ name: JUnit5 Tests and Zephyr Scale Reporting
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
 jobs:
   junit-tests-zephyr-scale:
     runs-on: ubuntu-latest
