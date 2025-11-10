@@ -1,4 +1,4 @@
-name: JUnit5 Tests and Zephyr Scale Reporting
+name: JUnit Tests + Zephyr Scale Reporting (Container)
 
 on:
   push:
@@ -7,52 +7,67 @@ on:
     branches: [ "main" ]
 
 jobs:
-  junit-tests-zephyr-scale:
+  junit-zephyr:
     runs-on: ubuntu-latest
 
+    # Use your custom container image
+    container:
+      image: ghcr.io/your-org/zephyr-uploader:latest
+      options: --entrypoint ""   # override entrypoint if needed
+
     steps:
-      # Checkout the code
+      # Step 1: Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup Java
+      # Step 2: Setup Java (still needed if your container doesn't have Java)
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # Clean and run tests
-      - name: Run JUnit5 Tests
-        run: mvn -B clean test
+      # Step 3: Run tests inside the container
+      - name: Run Maven JUnit Tests
+        run: |
+          mvn -B clean test
 
-      # Upload test reports to GitHub (optional)
-      - name: Upload JUnit Test Reports
+      # Step 4: Upload test results for debugging
+      - name: Persist JUnit Test Reports
         uses: actions/upload-artifact@v4
         with:
           name: junit-test-reports
           path: target/surefire-reports/*.xml
 
-      # Publish test results to Zephyr Scale Cloud
-      - name: Publish Test Results to Zephyr Scale
+      # Step 5: Run Zephyr upload script INSIDE the container
+      - name: Upload results to Zephyr Scale
         env:
           ZEPHYR_BASE_URL: "https://api.zephyrscale.smartbear.com/v2"
           ZEPHYR_TOKEN: ${{ secrets.ZEPHYR_TOKEN }}
           ZEPHYR_PROJECT_KEY: ${{ secrets.ZEPHYR_PROJECT_KEY }}
           ZEPHYR_CYCLE_KEY: ${{ secrets.ZEPHYR_CYCLE_KEY }}
         run: |
-          echo "Publishing test results to Zephyr Scale..."
-          echo "Project Key: ${ZEPHYR_PROJECT_KEY}"
-          echo "Cycle Key: ${ZEPHYR_CYCLE_KEY}"
-          echo "Using API: ${ZEPHYR_BASE_URL}/automation/executions/junit"
+          echo "Starting Zephyr Scale upload inside container..."
+          echo "Project: $ZEPHYR_PROJECT_KEY"
+          echo "Cycle:   $ZEPHYR_CYCLE_KEY"
 
-          # Validate mandatory variables
-          if [[ -z "${ZEPHYR_TOKEN}" || -z "${ZEPHYR_PROJECT_KEY}" || -z "${ZEPHYR_CYCLE_KEY}" ]]; then
-            echo "❌ Missing required environment variables!"
+          # Validate input variables
+          if [[ -z "$ZEPHYR_TOKEN" ]]; then
+            echo "❌ ZEPHYR_TOKEN is missing"
             exit 1
           fi
 
-          # Upload each XML test report
+          if [[ -z "$ZEPHYR_PROJECT_KEY" ]]; then
+            echo "❌ ZEPHYR_PROJECT_KEY is missing"
+            exit 1
+          fi
+
+          if [[ -z "$ZEPHYR_CYCLE_KEY" ]]; then
+            echo "❌ ZEPHYR_CYCLE_KEY is missing"
+            exit 1
+          fi
+
+          # Upload each XML file
           for file in target/surefire-reports/*.xml; do
             echo "Uploading: $file"
 
@@ -66,7 +81,12 @@ jobs:
               -F "testCycleKey=${ZEPHYR_CYCLE_KEY}"
             )
 
-            if [ "$response" -eq 200 ]; then
-              echo "✅ Successfully uploaded ${file}."
+            if [[ "$response" -eq 200 ]]; then
+              echo "✅ Successfully uploaded: $file"
             else
-              echo "❌ Failed to upload ${file}. HTTP status: ${response
+              echo "❌ Upload failed for ${file}. HTTP status: $response"
+              exit 1
+            fi
+          done
+
+          echo "✅ Zephyr upload completed successfully using container!"
