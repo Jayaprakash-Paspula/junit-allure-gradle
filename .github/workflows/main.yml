@@ -159,13 +159,3 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `## 🧪 Test Results Published to Zephyr Squad
-              
-  **Test Cycle:** ${testCycle}
-  **Project:** ${projectKey}
-  **Workflow Run:** [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-  
-  Check the test results in Zephyr Squad within your Jira project.`
-            });
-        env:
-          TEST_CYCLE_NAME: ${{ env.TEST_CYCLE_NAME }}
-          JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
